@@ -1,0 +1,10 @@
+{
+  "projectId": "acuitysync-v1",
+  "appId": "1:295544916320:web:6ed2a64e367a914e327605",
+  "apiKey": "AIzaSyCrIzpy0ccvoh4xQa3b4zmD8pRhpZnlWso",
+  "authDomain": "acuitysync-v1.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "acuitysync-v1.firebasestorage.app",
+  "messagingSenderId": "295544916320",
+  "measurementId": ""
+}

@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == "unismedic@gmail.com" && isEmailVerified())
+      );
+    }
+
+    function isStaff() {
+      return isSignedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidPatient(data) {
+      return data.keys().hasAll(['hisId', 'name', 'dob']) &&
+             data.hisId is string && data.hisId.size() <= 100 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.dob is string && data.dob.size() <= 20 &&
+             (!('currentAcuity' in data) || data.currentAcuity in ['ICU', 'HDU', 'Ward', 'Deceased']);
+    }
+
+    function isValidAssessment(data) {
+      return data.keys().hasAll(['patientId', 'assessorId', 'classification', 'timestamp']) &&
+             isValidId(data.patientId) &&
+             isValidId(data.assessorId) &&
+             data.classification in ['ICU', 'HDU', 'Ward'] &&
+             data.timestamp == request.time;
+    }
+
+    function isValidStaff(data) {
+      return data.keys().hasAll(['uid', 'role', 'email']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.role in ['Nurse', 'Charge Nurse', 'Physician', 'Administrator'];
+    }
+
+    // --- Rules ---
+
+    match /patients/{patientId} {
+      allow read: if isStaff() || isAdmin();
+      allow create: if (isStaff() || isAdmin()) && isValidPatient(incoming()) && isValidId(patientId);
+      allow update: if (isStaff() || isAdmin()) && isValidPatient(incoming()) && (
+        // Action: Bed/Acuity Update
+        (incoming().diff(existing()).affectedKeys().hasOnly(['bedNumber', 'currentAcuity', 'lastAssessmentId', 'riskScore', 'riskLevel', 'riskFactors'])) ||
+        // Admin Master Override
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /assessments/{assessmentId} {
+      allow read: if isStaff() || isAdmin();
+      allow create: if (isStaff() || isAdmin()) && isValidAssessment(incoming()) && 
+                    exists(/databases/$(database)/documents/patients/$(incoming().patientId));
+      allow update: if false; // Assessments are clinical records and should be immutable
+      allow delete: if isAdmin();
+    }
+
+    match /staff/{staffId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidStaff(incoming());
+      allow update: if (isOwner(staffId) || isAdmin()) && incoming().uid == existing().uid && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'department', 'lastActive'])) ||
+        isAdmin()
+      );
+    }
+
+    match /auditLogs/{logId} {
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && 
+                    incoming().timestamp == request.time;
+    }
+
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

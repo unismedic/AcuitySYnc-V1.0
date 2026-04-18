@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Source+Sans+Pro:wght@400;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-clinical: "Source Sans Pro", sans-serif;
+  
+  --color-med-blue: #2C5AA0;
+  --color-med-teal: #14b8a6;
+  --color-med-silver: #e2e8f0;
+  --color-med-steel: #94a3b8;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-slate-300 text-slate-900 selection:bg-blue-500/30 min-h-screen;
+    background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 50%, #94a3b8 100%);
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    @apply bg-slate-900 text-slate-100;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #020617 100%);
+  }
+}
+
+@layer utilities {
+  .metallic-panel {
+    @apply bg-white/60 backdrop-blur-xl border border-white/40 shadow-xl rounded-[32px];
+    box-shadow: 
+      inset 0 1px 1px rgba(255, 255, 255, 0.8),
+      0 10px 25px -5px rgba(0, 0, 0, 0.1),
+      0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark .metallic-panel {
+    @apply bg-slate-800/60 border-slate-700/40 shadow-2xl;
+    box-shadow: 
+      inset 0 1px 1px rgba(255, 255, 255, 0.05),
+      0 10px 25px -5px rgba(0, 0, 0, 0.4);
+  }
+  
+  .metallic-card {
+    @apply bg-slate-50/70 backdrop-blur-md border border-white/50 shadow-lg rounded-[24px] transition-all duration-300;
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  .dark .metallic-card {
+    @apply bg-slate-800/70 border-slate-700/50 shadow-xl;
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 4px 6px -1px rgba(0, 0, 0, 0.2);
+  }
+
+  .dark .text-slate-900 { @apply text-slate-100; }
+  .dark .text-slate-700 { @apply text-slate-300; }
+  .dark .text-slate-600 { @apply text-slate-400; }
+  .dark .text-slate-500 { @apply text-slate-300; }
+  .dark .text-slate-400 { @apply text-slate-500; }
+  .dark .bg-white { @apply bg-slate-800; }
+  .dark .bg-slate-50 { @apply bg-slate-900; }
+  .dark .bg-slate-100 { @apply bg-slate-800; }
+  .dark .bg-slate-200 { @apply bg-slate-700; }
+  .dark .bg-slate-300 { @apply bg-slate-800; }
+  .dark .bg-slate-50\/70 { @apply bg-slate-900/70; }
+  .dark .bg-white\/40 { @apply bg-slate-800/40; }
+  .dark .bg-white\/50 { @apply bg-slate-800/50; }
+  .dark .bg-white\/60 { @apply bg-slate-800/60; }
+  .dark .bg-white\/80 { @apply bg-slate-800/80; }
+  .dark .border-slate-200 { @apply border-slate-700; }
+  .dark .border-slate-300 { @apply border-slate-700; }
+  .dark .border-slate-100 { @apply border-slate-800; }
+  .dark .shadow-inner { @apply shadow-none; }
+  
+  .metallic-card:hover {
+    @apply border-blue-400/50 shadow-blue-500/10 -translate-y-1;
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 20px 25px -5px rgba(59, 130, 246, 0.1);
+  }
+  
+  .clinical-btn-primary {
+    @apply bg-blue-600 text-white font-bold rounded-2xl px-6 py-3 transition-all duration-300 shadow-lg shadow-blue-900/20 hover:bg-blue-500 hover:shadow-blue-500/30 active:scale-95 flex items-center justify-center gap-2;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  }
+
+  .clinical-btn-secondary {
+    @apply bg-white/80 text-slate-700 font-bold rounded-2xl px-6 py-3 border border-slate-200 transition-all duration-300 hover:bg-white hover:border-blue-300 hover:text-blue-600 active:scale-95 flex items-center justify-center gap-2;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+  
+  .micro-label {
+    @apply text-[10px] font-black uppercase tracking-[0.15em] text-slate-500;
+  }
+  
+  .data-value {
+    @apply font-mono tracking-tighter font-bold;
+  }
+  
+  .glow-blue {
+    @apply shadow-[0_0_20px_-5px_rgba(59,130,246,0.3)];
+  }
+  
+  .glow-teal {
+    @apply shadow-[0_0_20px_-5px_rgba(20,184,166,0.3)];
+  }
+
+  .brushed-metal {
+    background-image: repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0.01) 0px,
+      rgba(0,0,0,0.01) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-slate-200/50 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-400/50 rounded-full hover:bg-slate-500/50 transition-colors;
+  }
+}

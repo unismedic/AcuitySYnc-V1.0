@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient record synced from HIS.",
+      "type": "object",
+      "properties": {
+        "hisId": { "type": "string", "description": "Hospital Information System ID (FHIR ID)." },
+        "name": { "type": "string" },
+        "dob": { "type": "string", "format": "date" },
+        "bedNumber": { "type": "string" },
+        "currentAcuity": { "type": "string", "enum": ["ICU", "HDU", "Ward"] },
+        "lastAssessmentId": { "type": "string" }
+      },
+      "required": ["hisId", "name"]
+    },
+    "ShiftAssessment": {
+      "title": "Shift Assessment",
+      "description": "12-hourly clinical assessment for classification.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "assessorId": { "type": "string" },
+        "shiftTime": { "type": "string", "enum": ["07:00", "19:00"] },
+        "vitals": {
+          "type": "object",
+          "properties": {
+            "hr": { "type": "number" },
+            "map": { "type": "number" },
+            "spo2": { "type": "number" },
+            "rr": { "type": "number" },
+            "temp": { "type": "number" },
+            "gcs": { "type": "number" },
+            "urineOutput": { "type": "number" }
+          }
+        },
+        "interventions": {
+          "type": "object",
+          "properties": {
+            "mechanicalVentilation": { "type": "boolean" },
+            "highFlowO2": { "type": "boolean" },
+            "cpapBipap": { "type": "boolean" },
+            "singleVasopressor": { "type": "boolean" },
+            "multipleVasopressors": { "type": "boolean" },
+            "iabpEcmo": { "type": "boolean" },
+            "crrt": { "type": "boolean" },
+            "stepDownFromLevel3": { "type": "boolean" }
+          }
+        },
+        "classification": { "type": "string", "enum": ["ICU", "HDU", "Ward"] },
+        "aiJustification": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "assessorId", "classification"]
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "Hospital staff member with specific clinical roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["Nurse", "Charge Nurse", "Physician", "Administrator"] },
+        "department": { "type": "string" }
+      },
+      "required": ["uid", "role"]
+    }
+  },
+  "firestore": {
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Active patients in the unit."
+    },
+    "/assessments/{assessmentId}": {
+      "schema": "ShiftAssessment",
+      "description": "Historical and current shift assessments."
+    },
+    "/staff/{staffId}": {
+      "schema": "Staff",
+      "description": "Staff profiles and roles."
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "HIPAA compliant audit trail."
+    }
+  }
+}
