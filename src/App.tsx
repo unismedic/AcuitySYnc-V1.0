@@ -15,7 +15,7 @@ import {
   Stethoscope, Thermometer, Droplets, Brain, Wind, HeartPulse, Syringe,
   Printer, Download, Trash2, Settings, ArrowUpRight, ArrowDownRight,
   Handshake, ChevronDown, ArrowRightLeft, FileText, Shield, LineChart, HeartOff,
-  DoorOpen, AlertTriangle, Moon, Sun
+  DoorOpen, AlertTriangle, Moon, Sun, Cloud, Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -162,18 +162,18 @@ const HDU_BEDS = ['HDU-1', 'HDU-2', 'HDU-3', 'HDU-4', 'HDU-5', 'HDU-ISO1', 'HDU-
 const ALL_BEDS = [...ICU_BEDS, ...HDU_BEDS];
 
 // --- Helper: Audit Logging ---
-const logAction = (action: string, resourceId?: string, details?: string) => {
+const logAction = async (action: string, resourceId?: string, details?: string) => {
   try {
     const profile = storage.getStaffProfile();
     const logData: any = {
-      userId: profile.uid,
+      userId: profile ? profile.uid : 'anonymous',
       userEmail: 'local@acuitysync.local',
       action,
     };
     if (resourceId) logData.resourceId = resourceId;
     if (details) logData.details = details;
 
-    storage.saveAuditLog(logData);
+    await storage.saveAuditLog(logData);
   } catch (error) {
     console.error("Audit log failed:", error);
   }
@@ -223,32 +223,39 @@ function LoginScreen({ onLogin }: { onLogin: (profile: Staff) => void }) {
     }
   };
 
-  const handleDemoPilot = () => {
+  const handleDemoPilot = async () => {
     if (!role) {
       setError('Please select a role first');
       return;
     }
     
-    const demoProfile: Staff = {
-      uid: 'demo-admin-id',
-      name: 'Admin Demo User',
-      role: role,
-      department: 'Intensive Care Unit'
-    };
-    
-    // Seed initial patients for demo with active risk data
-    const seedPatients = [
-      { id: 'p1', hisId: 'HN-1001', name: 'Ahmed Al-Said', dob: '1965-05-12', bedNumber: 'ICU-1', currentAcuity: 'ICU' as const, medicalHistory: 'Post-op CABG, History of Hypertension and Type 2 Diabetes.', riskScore: 82, riskLevel: 'Critical' as const, riskFactors: ['Hemodynamic Instability', 'Recent Surgery'] },
-      { id: 'p2', hisId: 'HN-1002', name: 'Fatma Al-Balushi', dob: '1978-11-23', bedNumber: 'ICU-ISO1', currentAcuity: 'ICU' as const, medicalHistory: 'Severe Sepsis secondary to Pneumonia, Acute Kidney Injury on CRRT.', riskScore: 68, riskLevel: 'High' as const, riskFactors: ['Sepsis', 'Renal Support'] },
-      { id: 'p3', hisId: 'HN-1003', name: 'Mohammed Al-Rawahi', dob: '1952-08-30', bedNumber: 'HDU-2', currentAcuity: 'HDU' as const, medicalHistory: 'Exacerbation of COPD, requiring NIV support.', riskScore: 45, riskLevel: 'Moderate' as const, riskFactors: ['Respiratory Distress'] },
-      { id: 'p4', hisId: 'HN-1004', name: 'Sara Al-Zadjali', dob: '1989-02-14', bedNumber: 'HDU-ISO2', currentAcuity: 'HDU' as const, medicalHistory: 'Post-op Whipple procedure, monitoring for pancreatic leak.', riskScore: 24, riskLevel: 'Low' as const, riskFactors: ['Stable Post-op'] },
-    ];
+    setIsLoggingIn(true);
+    try {
+      const demoProfile: Staff = {
+        uid: 'demo-admin-id',
+        name: 'Admin Demo User',
+        role: role,
+        department: 'Intensive Care Unit'
+      };
+      
+      // Seed initial patients for demo with active risk data
+      const seedPatients = [
+        { id: 'p1', hisId: 'HN-1001', name: 'Ahmed Al-Said', dob: '1965-05-12', bedNumber: 'ICU-1', currentAcuity: 'ICU' as const, medicalHistory: 'Post-op CABG, History of Hypertension and Type 2 Diabetes.', riskScore: 82, riskLevel: 'Critical' as const, riskFactors: ['Hemodynamic Instability', 'Recent Surgery'] },
+        { id: 'p2', hisId: 'HN-1002', name: 'Fatma Al-Balushi', dob: '1978-11-23', bedNumber: 'ICU-ISO1', currentAcuity: 'ICU' as const, medicalHistory: 'Severe Sepsis secondary to Pneumonia, Acute Kidney Injury on CRRT.', riskScore: 68, riskLevel: 'High' as const, riskFactors: ['Sepsis', 'Renal Support'] },
+        { id: 'p3', hisId: 'HN-1003', name: 'Mohammed Al-Rawahi', dob: '1952-08-30', bedNumber: 'HDU-2', currentAcuity: 'HDU' as const, medicalHistory: 'Exacerbation of COPD, requiring NIV support.', riskScore: 45, riskLevel: 'Moderate' as const, riskFactors: ['Respiratory Distress'] },
+        { id: 'p4', hisId: 'HN-1004', name: 'Sara Al-Zadjali', dob: '1989-02-14', bedNumber: 'HDU-ISO2', currentAcuity: 'HDU' as const, medicalHistory: 'Post-op Whipple procedure, monitoring for pancreatic leak.', riskScore: 24, riskLevel: 'Low' as const, riskFactors: ['Stable Post-op'] },
+      ];
 
-    storage.updateStaffProfile(demoProfile);
-    seedPatients.forEach(p => storage.savePatient(p));
-    
-    onLogin(demoProfile);
-    window.location.reload();
+      storage.updateStaffProfile(demoProfile);
+      // Wait for all seed data to be committed to local storage
+      await Promise.all(seedPatients.map(p => storage.savePatient(p)));
+      
+      onLogin(demoProfile);
+    } catch (err: any) {
+      setError(err.message || 'Failed to start demo pilot');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   return (
@@ -467,7 +474,7 @@ function AcuitySync() {
   const handleDischarge = async (patient: Patient) => {
     setIsDischarging(true);
     try {
-      storage.deletePatient(patient.id);
+      await storage.deletePatient(patient.id);
       logAction('PATIENT_DISCHARGED', patient.id, `Patient ${patient.name} discharged from bed ${patient.bedNumber}`);
       setDischargePatient(null);
       refreshData();
@@ -481,7 +488,7 @@ function AcuitySync() {
   const handleDeclareDeath = async (patient: Patient) => {
     setIsDeclaringDeath(true);
     try {
-      storage.deletePatient(patient.id);
+      await storage.deletePatient(patient.id);
       logAction('PATIENT_DECEASED', patient.id, `Patient ${patient.name} declared deceased from bed ${patient.bedNumber}`);
       setDeclareDeathPatient(null);
       refreshData();
@@ -534,6 +541,18 @@ function AcuitySync() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-[10px] font-bold text-emerald-600 uppercase">Live System</span>
                 </div>
+                {auth.currentUser && (
+                  <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                    <Cloud size={10} className="text-blue-500" />
+                    <span className="text-[10px] font-bold text-blue-600 uppercase">Cloud Active</span>
+                  </div>
+                )}
+                {!auth.currentUser && (
+                  <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                    <Database size={10} className="text-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Local Mode</span>
+                  </div>
+                )}
                 <p className="micro-label text-slate-500 font-bold">
                   {staffProfile?.department?.replace(/ONCOLOGY/gi, '') || 'Intensive Care Unit'} • <span className="text-blue-600">Census, Ratio, Handover</span>
                 </p>
@@ -638,6 +657,7 @@ function AcuitySync() {
               onGenerateSummary={() => setIsSummaryOpen(true)}
               onDischarge={(p) => setDischargePatient(p)}
               onDeclareDeath={(p) => setDeclareDeathPatient(p)}
+              onRefresh={refreshData}
             />
           )}
           {activeTab === 'handover' && (
@@ -662,6 +682,7 @@ function AcuitySync() {
             patient={selectedPatient} 
             staff={staffProfile!} 
             onClose={() => setSelectedPatient(null)} 
+            onSuccess={refreshData}
           />
         )}
       </AnimatePresence>
@@ -674,6 +695,7 @@ function AcuitySync() {
               setIsAddPatientOpen(false);
               setInitialBedForNewPatient(undefined);
             }} 
+            onSuccess={refreshData}
             initialBed={initialBedForNewPatient}
           />
         )}
@@ -704,6 +726,7 @@ function AcuitySync() {
             patient={transferPatient} 
             patients={patients}
             onClose={() => setTransferPatient(null)} 
+            onSuccess={refreshData}
           />
         )}
       </AnimatePresence>
@@ -1150,7 +1173,7 @@ function calculateWorkloadScore(patient: Patient, latestAssessment?: ShiftAssess
   return Math.min(100, score);
 }
 
-function Census({ patients, assessments, onAssess, onAddPatient, onGenerateSBAR, onTransfer, onGenerateSummary, onDischarge, onDeclareDeath }: { 
+function Census({ patients, assessments, onAssess, onAddPatient, onGenerateSBAR, onTransfer, onGenerateSummary, onDischarge, onDeclareDeath, onRefresh }: { 
   patients: Patient[], 
   assessments: any[],
   onAssess: (p: Patient) => void, 
@@ -1159,7 +1182,8 @@ function Census({ patients, assessments, onAssess, onAddPatient, onGenerateSBAR,
   onTransfer: (p: Patient) => void,
   onGenerateSummary: () => void,
   onDischarge: (p: Patient) => void,
-  onDeclareDeath: (p: Patient) => void
+  onDeclareDeath: (p: Patient) => void,
+  onRefresh: () => void
 }) {
   const [search, setSearch] = useState('');
   const [acuityFilter, setAcuityFilter] = useState<'All' | 'ICU' | 'HDU'>('All');
@@ -1173,19 +1197,17 @@ function Census({ patients, assessments, onAssess, onAddPatient, onGenerateSBAR,
     return map;
   }, [patients]);
 
-  const handleSeed = () => {
+  const handleSeed = async () => {
     const seedPatients = [
-      { hisId: 'HN-1001', name: 'Ahmed Al-Said', dob: '1965-05-12', bedNumber: 'ICU-1', currentAcuity: 'ICU', medicalHistory: 'Post-op CABG, History of Hypertension and Type 2 Diabetes.' },
-      { hisId: 'HN-1002', name: 'Fatma Al-Balushi', dob: '1978-11-23', bedNumber: 'ICU-ISO1', currentAcuity: 'ICU', medicalHistory: 'Severe Sepsis secondary to Pneumonia, Acute Kidney Injury on CRRT.' },
-      { hisId: 'HN-1003', name: 'Mohammed Al-Rawahi', dob: '1952-08-30', bedNumber: 'HDU-2', currentAcuity: 'HDU', medicalHistory: 'Exacerbation of COPD, requiring NIV support.' },
-      { hisId: 'HN-1004', name: 'Sara Al-Zadjali', dob: '1989-02-14', bedNumber: 'HDU-ISO2', currentAcuity: 'HDU', medicalHistory: 'Post-op Whipple procedure, monitoring for pancreatic leak.' },
+      { id: 'p1', hisId: 'HN-1001', name: 'Ahmed Al-Said', dob: '1965-05-12', bedNumber: 'ICU-1', currentAcuity: 'ICU', medicalHistory: 'Post-op CABG, History of Hypertension and Type 2 Diabetes.' },
+      { id: 'p2', hisId: 'HN-1002', name: 'Fatma Al-Balushi', dob: '1978-11-23', bedNumber: 'ICU-ISO1', currentAcuity: 'ICU', medicalHistory: 'Severe Sepsis secondary to Pneumonia, Acute Kidney Injury on CRRT.' },
+      { id: 'p3', hisId: 'HN-1003', name: 'Mohammed Al-Rawahi', dob: '1952-08-30', bedNumber: 'HDU-2', currentAcuity: 'HDU', medicalHistory: 'Exacerbation of COPD, requiring NIV support.' },
+      { id: 'p4', hisId: 'HN-1004', name: 'Sara Al-Zadjali', dob: '1989-02-14', bedNumber: 'HDU-ISO2', currentAcuity: 'HDU', medicalHistory: 'Post-op Whipple procedure, monitoring for pancreatic leak.' },
     ];
 
-    for (const p of seedPatients) {
-      storage.savePatient(p);
-    }
-    logAction('CENSUS_SEEDED', 'ALL', 'Initial demo census data populated');
-    window.location.reload(); // Refresh to show seeded data
+    await Promise.all(seedPatients.map(p => storage.savePatient(p)));
+    await logAction('CENSUS_SEEDED', 'ALL', 'Initial demo census data populated');
+    onRefresh();
   };
 
   const renderBed = (bedId: string) => {
@@ -1892,7 +1914,7 @@ function UnitSummaryModal({ patients, onClose }: { patients: Patient[], onClose:
   );
 }
 
-function TransferModal({ patient, patients, onClose }: { patient: Patient, patients: Patient[], onClose: () => void }) {
+function TransferModal({ patient, patients, onClose, onSuccess }: { patient: Patient, patients: Patient[], onClose: () => void, onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const [selectedBed, setSelectedBed] = useState<string>('');
 
@@ -1903,14 +1925,14 @@ function TransferModal({ patient, patients, onClose }: { patient: Patient, patie
     if (!selectedBed) return;
     setLoading(true);
     try {
-      storage.savePatient({
+      await storage.savePatient({
         ...patient,
         bedNumber: selectedBed,
         currentAcuity: selectedBed.startsWith('ICU') ? 'ICU' : 'HDU'
       });
-      logAction('PATIENT_TRANSFERRED', patient.id, `Transferred from ${patient.bedNumber} to ${selectedBed}`);
+      await logAction('PATIENT_TRANSFERRED', patient.id, `Transferred from ${patient.bedNumber} to ${selectedBed}`);
+      onSuccess();
       onClose();
-      window.location.reload();
     } catch (error) {
       console.error("Transfer error:", error);
     } finally {
@@ -2217,7 +2239,7 @@ function StandardBullet({ label }: { label: string }) {
   );
 }
 
-function AddPatientModal({ onClose, initialBed }: { onClose: () => void, initialBed?: string }) {
+function AddPatientModal({ onClose, onSuccess, initialBed }: { onClose: () => void, onSuccess: () => void, initialBed?: string }) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<{
     hisId: string;
@@ -2239,10 +2261,10 @@ function AddPatientModal({ onClose, initialBed }: { onClose: () => void, initial
     e.preventDefault();
     setLoading(true);
     try {
-      storage.savePatient(formData);
-      logAction('PATIENT_ADDED', formData.hisId, `Manually added ${formData.name}`);
+      await storage.savePatient(formData);
+      await logAction('PATIENT_ADDED', formData.hisId, `Manually added ${formData.name}`);
+      onSuccess();
       onClose();
-      window.location.reload();
     } catch (error) {
       console.error("Add patient error:", error);
     } finally {
@@ -2360,7 +2382,7 @@ function AddPatientModal({ onClose, initialBed }: { onClose: () => void, initial
   );
 }
 
-function AssessmentModal({ patient, staff, onClose }: { patient: Patient, staff: Staff, onClose: () => void }) {
+function AssessmentModal({ patient, staff, onClose, onSuccess }: { patient: Patient, staff: Staff, onClose: () => void, onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [vitals, setVitals] = useState({
@@ -2425,10 +2447,10 @@ function AssessmentModal({ patient, staff, onClose }: { patient: Patient, staff:
         riskFactors: riskResult.factors
       };
 
-      const savedAssessments = storage.saveAssessment(assessmentData);
+      const savedAssessments = await storage.saveAssessment(assessmentData);
       const newAssessmentId = savedAssessments[0].id;
 
-      storage.savePatient({
+      await storage.savePatient({
         ...patient,
         currentAcuity: classification,
         lastAssessmentId: newAssessmentId,
@@ -2437,9 +2459,9 @@ function AssessmentModal({ patient, staff, onClose }: { patient: Patient, staff:
         riskFactors: riskResult.factors
       });
 
-      logAction('ASSESSMENT_SUBMITTED', patient.id, `Classified as ${classification} with ${riskResult.level} risk`);
+      await logAction('ASSESSMENT_SUBMITTED', patient.id, `Classified as ${classification} with ${riskResult.level} risk`);
+      onSuccess();
       onClose();
-      window.location.reload();
     } catch (error) {
       console.error("Assessment submission error:", error);
     } finally {
@@ -3003,9 +3025,9 @@ function HandoverTool({ patients, assessments, handovers, staff, onRefresh, onGe
             handover={activeHandover}
             staff={staff}
             onClose={() => setIsFormOpen(false)}
-            onSave={(data) => {
-              storage.saveHandover(data);
-              logAction('HANDOVER_SAVED', selectedPatient.id, `Handover ${data.status} saved by ${staff.name}`);
+            onSave={async (data) => {
+              await storage.saveHandover(data);
+              await logAction('HANDOVER_SAVED', selectedPatient.id, `Handover ${data.status} saved by ${staff.name}`);
               onRefresh();
               setIsFormOpen(false);
             }}

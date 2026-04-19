@@ -1,3 +1,18 @@
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDocs, 
+  deleteDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit,
+  Timestamp,
+  writeBatch
+} from 'firebase/firestore';
+import { db, auth } from './firebase';
 
 // Local Storage Utility for AcuitySync
 // Replaces Firestore for local-only operation
@@ -22,20 +37,38 @@ const saveLocalData = <T>(key: string, data: T[]) => {
 };
 
 export const storage = {
+  // Sync Status
+  isSyncing: false,
+
   // Patients
   getPatients: () => getLocalData<any>(STORAGE_KEYS.PATIENTS),
-  savePatient: (patient: any) => {
+  savePatient: async (patient: any) => {
     const patients = storage.getPatients();
     const index = patients.findIndex((p: any) => p.id === patient.id);
+    const updatedPatient = { ...patient, id: patient.id || crypto.randomUUID() };
+    
     if (index >= 0) {
-      patients[index] = { ...patients[index], ...patient };
+      patients[index] = { ...patients[index], ...updatedPatient };
     } else {
-      patients.push({ ...patient, id: patient.id || crypto.randomUUID() });
+      patients.push(updatedPatient);
     }
     saveLocalData(STORAGE_KEYS.PATIENTS, patients);
+
+    // Sync to Firestore if authenticated
+    if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, 'patients', updatedPatient.id), {
+          ...updatedPatient,
+          updatedAt: Timestamp.now()
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Firestore sync failed for patient", e);
+      }
+    }
+    
     return patients;
   },
-  deletePatient: (id: string) => {
+  deletePatient: async (id: string) => {
     const patients = storage.getPatients().filter((p: any) => p.id !== id);
     saveLocalData(STORAGE_KEYS.PATIENTS, patients);
     
@@ -46,13 +79,26 @@ export const storage = {
     // Cleanup handovers
     const handovers = storage.getHandovers().filter((h: any) => h.patientId !== id);
     saveLocalData(STORAGE_KEYS.HANDOVERS, handovers);
+
+    // Sync to Firestore if authenticated
+    if (auth.currentUser) {
+      try {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'patients', id));
+        // Note: In real production, we'd also batch delete sub-records 
+        // but for demo simple patient delete is enough
+        await batch.commit();
+      } catch (e) {
+        console.warn("Firestore delete sync failed", e);
+      }
+    }
     
     return patients;
   },
 
   // Assessments
   getAssessments: () => getLocalData<any>(STORAGE_KEYS.ASSESSMENTS),
-  saveAssessment: (assessment: any) => {
+  saveAssessment: async (assessment: any) => {
     const assessments = storage.getAssessments();
     const newAssessment = { 
       ...assessment, 
@@ -61,12 +107,25 @@ export const storage = {
     };
     assessments.unshift(newAssessment); // Newest first
     saveLocalData(STORAGE_KEYS.ASSESSMENTS, assessments);
+
+    // Sync to Firestore if authenticated
+    if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, 'assessments', newAssessment.id), {
+          ...newAssessment,
+          timestamp: Timestamp.now()
+        });
+      } catch (e) {
+        console.warn("Firestore assessment sync failed", e);
+      }
+    }
+
     return assessments;
   },
 
   // Handovers
   getHandovers: () => getLocalData<any>(STORAGE_KEYS.HANDOVERS),
-  saveHandover: (handover: any) => {
+  saveHandover: async (handover: any) => {
     const handovers = storage.getHandovers();
     const newHandover = {
       ...handover,
@@ -82,12 +141,25 @@ export const storage = {
     }
     
     saveLocalData(STORAGE_KEYS.HANDOVERS, handovers);
+
+    // Sync to Firestore
+    if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, 'handovers', newHandover.id), {
+          ...newHandover,
+          timestamp: Timestamp.now()
+        });
+      } catch (e) {
+        console.warn("Firestore handover sync failed", e);
+      }
+    }
+
     return handovers;
   },
 
   // Audit Logs
   getAuditLogs: () => getLocalData<any>(STORAGE_KEYS.AUDIT_LOGS),
-  saveAuditLog: (log: any) => {
+  saveAuditLog: async (log: any) => {
     const logs = storage.getAuditLogs();
     const newLog = { 
       ...log, 
@@ -98,6 +170,19 @@ export const storage = {
     // Keep only last 1000 logs to prevent localStorage bloat
     const limitedLogs = logs.slice(0, 1000);
     saveLocalData(STORAGE_KEYS.AUDIT_LOGS, limitedLogs);
+
+    // Sync to Firestore
+    if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, 'auditLogs', newLog.id), {
+          ...newLog,
+          timestamp: Timestamp.now()
+        });
+      } catch (e) {
+        console.warn("Firestore audit sync failed", e);
+      }
+    }
+
     return limitedLogs;
   },
 

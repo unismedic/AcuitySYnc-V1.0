@@ -51,7 +51,7 @@ export async function getAIJustification(vitals: any, interventions: any, level:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         systemInstruction: "You are a senior intensive care consultant providing brief, accurate clinical justifications for patient acuity levels.",
@@ -84,7 +84,7 @@ export async function predictRiskScore(vitals: any, interventions: any, history:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         systemInstruction: "You are a predictive analytics engine for critical care. Provide accurate, data-driven risk assessments in JSON format.",
@@ -113,7 +113,7 @@ export async function generateSBAR(patient: any, latestAssessment: any, staff: a
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         systemInstruction: "You are an expert clinical communicator. Generate high-quality SBAR reports for ICU/HDU handovers.",

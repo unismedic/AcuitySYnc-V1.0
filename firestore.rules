@@ -104,6 +104,17 @@ service cloud.firestore {
                     incoming().timestamp == request.time;
     }
 
+    match /handovers/{handoverId} {
+      allow read: if isStaff() || isAdmin();
+      allow create: if (isStaff() || isAdmin()) && isValidId(handoverId) && 
+                    incoming().keys().hasAll(['patientId', 'staffId', 'content', 'timestamp']) &&
+                    isValidId(incoming().patientId) &&
+                    isValidId(incoming().staffId) &&
+                    incoming().timestamp == request.time;
+      allow update: if false; // Handovers should be immutable historical records
+      allow delete: if isAdmin();
+    }
+
     match /admins/{adminId} {
       allow read: if isAdmin();
     }
