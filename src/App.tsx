@@ -15,7 +15,7 @@ import {
   Stethoscope, Thermometer, Droplets, Brain, Wind, HeartPulse, Syringe,
   Printer, Download, Trash2, Settings, ArrowUpRight, ArrowDownRight,
   Handshake, ChevronDown, ArrowRightLeft, FileText, Shield, LineChart, HeartOff,
-  DoorOpen, AlertTriangle, Moon, Sun, Cloud, Database, Wand2, Sparkles
+  DoorOpen, AlertTriangle, Moon, Sun, Cloud, Database, Wand2, Sparkles, Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -217,7 +217,11 @@ function LoginScreen({ onLogin }: { onLogin: (profile: Staff) => void }) {
       });
     } catch (err: any) {
       console.error("Google Login Error:", err);
-      setError(err.message || 'Failed to sign in with Google');
+      let msg = err.message || 'Failed to sign in with Google';
+      if (err.code === 'auth/unauthorized-domain') {
+        msg = `Unauthorized Domain: Please add "${window.location.hostname}" to your Firebase Console > Auth > Settings > Authorized Domains list.`;
+      }
+      setError(msg);
     } finally {
       setIsLoggingIn(false);
     }
@@ -375,21 +379,32 @@ function LoginScreen({ onLogin }: { onLogin: (profile: Staff) => void }) {
               <motion.div 
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-bold flex items-start gap-2"
+                className="p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-[11px] font-bold flex flex-col gap-2"
               >
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                <span>
-                  {error.includes('auth-domain-config-required') || error.includes('auth/auth-domain-config-required')
-                    ? 'Cloud authentication is currently pending configuration. Please use Demo Mode below.'
-                    : error}
-                </span>
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <span>
+                    {error.includes('auth-domain-config-required') || error.includes('auth/auth-domain-config-required')
+                      ? 'Cloud authentication is currently pending configuration. Please use Demo Mode below.'
+                      : error}
+                  </span>
+                </div>
+                {error.includes('Unauthorized Domain') && (
+                  <div className="mt-2 p-2 bg-white rounded-xl border border-red-200 text-slate-600 font-mono text-[9px] break-all select-all cursor-pointer" title="Click to copy domain">
+                    {window.location.hostname}
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
         )}
       </motion.div>
-      <div className="mt-8 text-center">
+      <div className="mt-8 text-center space-y-2">
         <p className="text-sm text-slate-400 font-medium tracking-wide">Developed by: K.Younes BSN, MSN</p>
+        <div className="px-3 py-1 bg-slate-100 rounded-full inline-flex items-center gap-1.5 border border-slate-200">
+          <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+          <span className="text-[10px] font-bold text-slate-500 font-mono uppercase tracking-tighter">Domain Verify: {window.location.hostname}</span>
+        </div>
       </div>
     </div>
   );
@@ -416,6 +431,7 @@ function AcuitySync() {
   const [isDeclaringDeath, setIsDeclaringDeath] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(storage.getDarkMode());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (darkMode) {
@@ -469,6 +485,27 @@ function AcuitySync() {
     } catch (error) {
       console.error("Logout error:", error);
     }
+  };
+
+  const handleImportCheckpoint = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      const success = storage.importFullDatabase(content);
+      if (success) {
+        refreshData();
+        await logAction('SYSTEM_RESTORE', 'ALL', 'Data checkpoint restored from local file');
+        alert("Checkpoint restored successfully!");
+      } else {
+        alert("Failed to restore checkpoint. Please ensure the file is valid.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleDischarge = async (patient: Patient) => {
@@ -587,6 +624,15 @@ function AcuitySync() {
               <Download size={20} className="group-hover:translate-y-0.5 transition-transform" />
               <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest">Save Checkpoint</span>
             </button>
+
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2.5 text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white rounded-xl transition-all flex items-center gap-2 shadow-sm group"
+              title="Upload Data Checkpoint from Computer"
+            >
+              <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
+              <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest">Upload Checkpoint</span>
+            </button>
             
             <div className="h-8 w-px bg-slate-300 mx-1 hidden sm:block"></div>
 
@@ -674,6 +720,15 @@ function AcuitySync() {
           {activeTab === 'audit' && staffProfile?.role === 'Administrator / Auditor' && <AuditTrail logs={auditLogs} />}
         </AnimatePresence>
       </main>
+
+      {/* Hidden File Input for Checkpoint Upload */}
+      <input 
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImportCheckpoint}
+        accept=".json"
+        className="hidden"
+      />
 
       {/* Assessment Modal */}
       <AnimatePresence>
