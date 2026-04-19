@@ -15,7 +15,7 @@ import {
   Stethoscope, Thermometer, Droplets, Brain, Wind, HeartPulse, Syringe,
   Printer, Download, Trash2, Settings, ArrowUpRight, ArrowDownRight,
   Handshake, ChevronDown, ArrowRightLeft, FileText, Shield, LineChart, HeartOff,
-  DoorOpen, AlertTriangle, Moon, Sun, Cloud, Database
+  DoorOpen, AlertTriangle, Moon, Sun, Cloud, Database, Wand2, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -1210,6 +1210,106 @@ function Census({ patients, assessments, onAssess, onAddPatient, onGenerateSBAR,
     onRefresh();
   };
 
+  const handleRandomAdd = async () => {
+    const firstNames = ['James', 'Mary', 'Robert', 'Patricia', 'John', 'Jennifer', 'Michael', 'Linda', 'Thomas', 'Elizabeth', 'Ousmane', 'Amina', 'Chen', 'Wei', 'Arun', 'Priya'];
+    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Dembele', 'Diop', 'Lee', 'Wong', 'Gupta', 'Sharma', 'Al-Farsi', 'Bin-Said'];
+    const diagnoses = [
+      'Post-op Whipple procedure',
+      'Exacerbation of COPD',
+      'Severe Sepsis',
+      'Acute Kidney Injury',
+      'Community Acquired Pneumonia',
+      'Post-op CABG',
+      'History of Hypertension',
+      'Type 2 Diabetes',
+      'Multiple Trauma',
+      'Ischemic Stroke'
+    ];
+
+    const randomBed = ALL_BEDS.filter(b => !patientMap[b])[Math.floor(Math.random() * ALL_BEDS.filter(b => !patientMap[b]).length)];
+    
+    if (!randomBed) {
+      alert("No available beds in the unit.");
+      return;
+    }
+
+    const randomPatient: Patient = {
+      id: crypto.randomUUID(),
+      hisId: `HN-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`,
+      dob: `${Math.floor(1940 + Math.random() * 60)}-${String(Math.floor(1 + Math.random() * 12)).padStart(2, '0')}-${String(Math.floor(1 + Math.random() * 28)).padStart(2, '0')}`,
+      bedNumber: randomBed,
+      currentAcuity: randomBed.startsWith('ICU') ? 'ICU' : 'HDU',
+      medicalHistory: diagnoses[Math.floor(Math.random() * diagnoses.length)],
+      riskScore: Math.floor(10 + Math.random() * 80),
+      riskLevel: 'Moderate', // Default
+      riskFactors: ['Randomly Generated']
+    };
+
+    if (randomPatient.riskScore >= 70) randomPatient.riskLevel = 'Critical' as const;
+    else if (randomPatient.riskScore >= 40) randomPatient.riskLevel = 'High' as const;
+    else if (randomPatient.riskScore >= 20) randomPatient.riskLevel = 'Moderate' as const;
+    else randomPatient.riskLevel = 'Low' as const;
+
+    await storage.savePatient(randomPatient);
+    await logAction('RANDOM_PATIENT_GENERATED', randomPatient.hisId, `Randomly generated patient ${randomPatient.name}`);
+    onRefresh();
+  };
+
+  const handleBulkRandomAdd = async () => {
+    const firstNames = ['Arun', 'Priya', 'Ahmed', 'Fatma', 'John', 'Sarah', 'Chen', 'Wei', 'Ousmane', 'Amina', 'Hiroshi', 'Yuki', 'Carlos', 'Elena'];
+    const lastNames = ['Gupta', 'Sharma', 'Al-Said', 'Al-Balushi', 'Smith', 'Doe', 'Wong', 'Lee', 'Diop', 'Sow', 'Tanaka', 'Sato', 'Garcia', 'Martinez'];
+    const diagnoses = [
+      'Heart Failure Exacerbation',
+      'Acute Respiratory Distress Syndrome',
+      'Sepsis Shock',
+      'Post-op Liver Transplant',
+      'Traumatic Brain Injury',
+      'Gastrointestinal Hemorrhage',
+      'Multisystem Organ Failure',
+      'Status Epilepticus',
+      'Pulmonary Embolism',
+      'Cardiogenic Shock'
+    ];
+
+    const availableBeds = ALL_BEDS.filter(b => !patientMap[b]);
+    const numToGenerate = Math.min(7, availableBeds.length);
+
+    if (numToGenerate === 0) {
+      alert("No available beds in the unit.");
+      return;
+    }
+
+    // Shuffle and pick beds
+    const bedSubset = [...availableBeds].sort(() => 0.5 - Math.random()).slice(0, numToGenerate);
+
+    const newPatients: Patient[] = bedSubset.map(bed => {
+      const riskScore = Math.floor(15 + Math.random() * 80);
+      let riskLevel: 'Low' | 'Moderate' | 'High' | 'Critical' = 'Moderate';
+      if (riskScore >= 75) riskLevel = 'Critical';
+      else if (riskScore >= 45) riskLevel = 'High';
+      else if (riskScore >= 25) riskLevel = 'Moderate';
+      else riskLevel = 'Low';
+
+      return {
+        id: crypto.randomUUID(),
+        hisId: `DEMO-${Math.floor(1000 + Math.random() * 8999)}`,
+        name: `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`,
+        dob: `${Math.floor(1935 + Math.random() * 65)}-${String(Math.floor(1 + Math.random() * 12)).padStart(2, '0')}-${String(Math.floor(1 + Math.random() * 28)).padStart(2, '0')}`,
+        bedNumber: bed,
+        currentAcuity: bed.startsWith('ICU') ? 'ICU' : 'HDU',
+        medicalHistory: diagnoses[Math.floor(Math.random() * diagnoses.length)],
+        riskScore,
+        riskLevel,
+        riskFactors: ['Demo Simulation Cluster']
+      };
+    });
+
+    await Promise.all(newPatients.map(p => storage.savePatient(p)));
+    await logAction('BULK_DEMO_GENERATED', 'UNIT', `Generated ${numToGenerate} demo patients for simulation`);
+    onRefresh();
+  };
+
   const renderBed = (bedId: string) => {
     const patient = patientMap[bedId];
     
@@ -1391,6 +1491,24 @@ function Census({ patients, assessments, onAssess, onAddPatient, onGenerateSBAR,
             >
               <UserPlus size={14} />
               Quick Add
+            </button>
+            <button 
+              onClick={handleRandomAdd}
+              className="h-9 w-9 bg-slate-900 text-white rounded-xl hover:bg-black transition-all flex items-center justify-center shadow-lg shadow-black/10 group"
+              title="Generate Random Patient"
+            >
+              <Wand2 size={16} className="group-hover:rotate-12 transition-transform" />
+            </button>
+            <button 
+              onClick={handleBulkRandomAdd}
+              className="px-4 h-9 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20 group ring-2 ring-purple-500/20"
+              title="Generate 7 Demo Patients"
+            >
+              <div className="relative">
+                <Sparkles size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="absolute -top-1 -right-1 text-[8px] font-black bg-white text-purple-600 px-1 rounded-full border border-purple-100 uppercase">Demo</span>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Bulk Demo (x7)</span>
             </button>
           </div>
           {patients.length === 0 && (
